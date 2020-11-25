@@ -1,7 +1,16 @@
 # MIR
 
 
-## Examples
+
+## Common MIR
+
+![Mir PROCESS](imagse/mir-gen-768x375.png)
+
+Future Plan
+
+![Future Plan(images/mirall.png)]
+
+Examples
 
 [https://github.com/vnmakarov/mir](https://github.com/vnmakarov/mir)
 
