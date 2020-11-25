@@ -4,11 +4,11 @@
 
 ## Common MIR
 
-![Mir PROCESS](imagse/mir-gen-768x375.png)
+![Mir PROCESS](imagse/mir-gen.svg)
 
 Future Plan
 
-![Future Plan(images/mirall.png)]
+![Future Plan(images/mirall.svg)]
 
 Examples
 
