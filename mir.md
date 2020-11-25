@@ -4,15 +4,17 @@
 
 ## Common MIR
 
-![Mir PROCESS](imagse/mir-gen.svg)
-
-Future Plan
-
-![Future Plan(images/mirall.svg)]
-
-Examples
-
 [https://github.com/vnmakarov/mir](https://github.com/vnmakarov/mir)
+
+![Mir PROCESS](images/mir-gen.svg)
+
+Current:
+
+![Current Plan](images/mir3.svg)
+
+Future Plan:
+
+![Future Plan](images/mirall.svg)
 
 ```c
 #define Size 819000
