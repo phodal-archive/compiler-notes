@@ -88,6 +88,25 @@ Future Plan:
 
 ![Future Plan](images/mirall.svg)
 
+### hello, world
+
+```asm
+hello_m:  module
+          import printf
+hello:    func i64
+          local i64:r # local variable has to be i64
+
+# prototype of printf
+p_printf: proto i32, p:fmt
+format:   string "hello, world\n"
+          call p_printf, printf, r, format
+          ret r
+          endfunc
+          endmodule
+```
+
+### Demos
+
 ```c
 #define Size 819000
 int sieve (int N) {
