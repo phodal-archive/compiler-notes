@@ -1,6 +1,78 @@
 # MIR
 
+## Rust MIR
 
+Docs: [https://rust-lang.github.io/rfcs/1211-mir.html](https://rust-lang.github.io/rfcs/1211-mir.html)
+
+```
+MIR = fn({TYPE}) -> TYPE {
+    {let [mut] B: TYPE;}  // user-declared bindings and their types
+    {let TEMP: TYPE;}     // compiler-introduced temporary
+    {BASIC_BLOCK}         // control-flow graph
+};
+
+BASIC_BLOCK = BB: {STATEMENT} TERMINATOR
+
+STATEMENT = LVALUE "=" RVALUE        // assign rvalue into lvalue
+          | Drop(DROP_KIND, LVALUE)  // drop value if needed
+DROP_KIND = SHALLOW                  // (see discussion below)
+          | DEEP
+
+TERMINATOR = GOTO(BB)              // normal control-flow
+           | PANIC(BB)             // initiate unwinding, branching to BB for cleanup
+           | IF(LVALUE, BB0, BB1)  // test LVALUE and branch to BB0 if true, else BB1
+           | SWITCH(LVALUE, BB...) // load discriminant from LVALUE (which must be an enum),
+                                   // and branch to BB... depending on which variant it is
+           | CALL(LVALUE0 = LVALUE1(LVALUE2...), BB0, BB1)
+                                   // call LVALUE1 with LVALUE2... as arguments. Write
+                                   // result into LVALUE0. Branch to BB0 if it returns
+                                   // normally, BB1 if it is unwinding.
+           | DIVERGE               // return to caller, unwinding
+           | RETURN                // return to caller normally
+           
+LVALUE "=" RVALUE
+
+LVALUE = B                   // reference to a user-declared binding
+       | TEMP                // a temporary introduced by the compiler
+       | ARG                 // a formal argument of the fn
+       | STATIC              // a reference to a static or static mut
+       | RETURN              // the return pointer of the fn
+       | LVALUE.f            // project a field or tuple field, like x.f or x.0
+       | *LVALUE             // dereference a pointer
+       | LVALUE[LVALUE]      // index into an array (see disc. below about bounds checks)
+       | (LVALUE as VARIANT) // downcast to a specific variant of an enum,
+                             // see the section on desugaring matches below
+
+RVALUE = Use(LVALUE)                // just read an lvalue
+       | [LVALUE; LVALUE]
+       | &'REGION LVALUE
+       | &'REGION mut LVALUE
+       | LVALUE as TYPE
+       | LVALUE <BINOP> LVALUE
+       | <UNOP> LVALUE
+       | Struct { f: LVALUE0, ... } // aggregates, see section below
+       | (LVALUE...LVALUE)
+       | [LVALUE...LVALUE]
+       | CONSTANT
+       | LEN(LVALUE)                // load length from a slice, see section below
+       | BOX                        // malloc for builtin box, see section below
+BINOP = + | - | * | / | ...         // excluding && and ||
+UNOP = ! | -                        // note: no `*`, as that is part of LVALUE
+
+CONSTANT = INT
+         | UINT
+         | FLOAT
+         | BOOL
+         | BYTES
+         | STATIC_STRING
+         | ITEM<SUBSTS>                 // reference to an item or constant etc
+         | <P0 as TRAIT<P1...Pn>>       // projection
+         | CONSTANT(CONSTANT...)        // 
+         | CAST(CONSTANT, TY)           // foo as bar
+         | Struct { (f: CONSTANT)... }  // aggregates...
+         | (CONSTANT...)                //
+         | [CONSTANT...]                //
+```
 
 ## Common MIR
 
