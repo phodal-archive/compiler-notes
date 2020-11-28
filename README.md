@@ -3,6 +3,27 @@
 
 ## Refs
 
+### Comby
+
+[Comby](https://github.com/comby-tools/comby) is a tool for structural code search and replace that supports ~every language. 
+
+Template
+
+```
+if :[expr] != nil {
+  for :[x] := range :[expr] {
+    :[body]
+  }
+}
+```
+
+match code
+
+```
+for :[x] := range :[expr] {
+  :[body]
+}
+```
 
 ### Instaparse
 
