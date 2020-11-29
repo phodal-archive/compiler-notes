@@ -2,12 +2,6 @@
 
 ## Refs
 
-### Cubix
-
-[Cubix](https://github.com/cubix-framework/cubix) is a framework for language-parametric program transformation, i.e.: defining a single source-to-source program transformation tool that can be run on multiple languages. In Cubix, you can write transformations with a type signature like "This transformation works for any language that has assignments, loops, and a name-binding analysis," and instantly get separate tools for C, Java, etc. 
-
-Code examples: [https://github.com/cubix-framework/rwus](https://github.com/cubix-framework/rwus)  The RWUS (Real World, Unchanged Semantics) benchmark suite for testing multi-language semantics-preserving source-to-source transformations 
-
 
 ### Comby
 
@@ -57,6 +51,41 @@ end
 
 include Matcher.Make(Syntax)
 ```
+
+
+### Cubix
+
+[Cubix](https://github.com/cubix-framework/cubix) is a framework for language-parametric program transformation, i.e.: defining a single source-to-source program transformation tool that can be run on multiple languages. In Cubix, you can write transformations with a type signature like "This transformation works for any language that has assignments, loops, and a name-binding analysis," and instantly get separate tools for C, Java, etc. 
+
+Code examples: [https://github.com/cubix-framework/rwus](https://github.com/cubix-framework/rwus)  The RWUS (Real World, Unchanged Semantics) benchmark suite for testing multi-language semantics-preserving source-to-source transformations 
+
+
+Cubix is the world's first framework that can build language-parametric
+source-to-source transformations. As the first of its kind, it often
+gets mistaken for a solution to more familiar problems. In particular,
+it is not:
+
+* A tool for translating one language into another. Cubix allows you
+  to create a single tool that can transform C programs into better C
+  programs and Java programs into better Java programs. It is not
+  designed for building tools that can transform C programs into Java programs. Indeed, much of
+  its power comes from its ability to preserve all the information of
+  the original program.
+* A collection of ready-to-use refactoring tools. Thus far, all
+  transformations built on Cubix are tech demos. While a couple are
+  theoretically useful, they have not undergone the amount of UX
+  engineering needed to actually be time-savers.
+ * A framework for writing multi-language program analyses. Cubix transformations may consume results
+   provided by other analyses, which may be written in either a
+   single-language or multi-language fashion.
+ * A framework for analysis/transformation of polyglot programs, i.e.:
+   programs (or single source files) written in multiple
+   languages. 
+   
+However, Cubix's generic-programming capabilities make it a powerful
+tool for building all kinds of programming tools, even for only one
+language. We are particularly excited about the potential of extending Cubix to
+transform polyglot programs.
 
 ### Instaparse
 
