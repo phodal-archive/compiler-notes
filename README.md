@@ -17,7 +17,7 @@ if :[expr] != nil {
 }
 ```
 
-match code
+once match code replace to
 
 ```
 for :[x] := range :[expr] {
@@ -51,6 +51,87 @@ end
 
 include Matcher.Make(Syntax)
 ```
+
+first origin version:
+
+
+```
+./comby -stdin 'printf(":[1] :[2]")' 'printf("comby, :[1]")' << EOF 2> /dev/null
+int main(void) {
+  printf("hello world");
+}
+EOF
+```
+
+Outputs:
+
+```c
+int main(void) {
+  printf("comby, hello");
+}
+```
+- Adding a `-json` flag will output JSON content of the rewrite:
+
+```json
+[
+  {
+    "range": {
+      "start": { "offset": 19, "line": -1, "column": -1 },
+      "end": { "offset": 41, "line": -1, "column": -1 }
+    },
+    "replacement_content": "printf(\"comby, hello\")",
+    "environment": [
+      [
+        "1",
+        {
+          "value": "hello",
+          "range": {
+            "start": { "offset": 15, "line": -1, "column": -1 },
+            "end": { "offset": 20, "line": -1, "column": -1 }
+          }
+        }
+      ]
+    ]
+  }
+]
+```
+
+- Adding a `-match-only` flag will output JSON content of all matches:
+
+```json
+[
+  {
+    "range": {
+      "start": { "offset": 19, "line": 1, "column": 20 },
+      "end": { "offset": 40, "line": 1, "column": 41 }
+    },
+    "environment": [
+      [
+        "1",
+        {
+          "value": "hello",
+          "range": {
+            "start": { "offset": 27, "line": 1, "column": 28 },
+            "end": { "offset": 32, "line": 1, "column": 33 }
+          }
+        }
+      ],
+      [
+        "2",
+        {
+          "value": "world",
+          "range": {
+            "start": { "offset": 33, "line": 1, "column": 34 },
+            "end": { "offset": 38, "line": 1, "column": 39 }
+          }
+        }
+      ]
+    ],
+    "matched": "printf(\"hello world\")"
+  }
+]
+```
+
 
 
 ### Cubix
