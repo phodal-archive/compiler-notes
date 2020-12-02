@@ -1,0 +1,1326 @@
+tokenizer {
+  #[skip] whitespace r"\s+"
+  #[skip] line_comment r"//.*\n?"
+  #[skip] block_comment r"/\*" 'parse_block_comment'
+
+  #[contextual] union 'union'
+  as 'as'
+  crate 'crate'
+  extern 'extern'
+  fn 'fn'
+  let 'let'
+  pub 'pub'
+  struct 'struct'
+  use 'use'
+  mod 'mod'
+  if 'if'
+  else 'else'
+  enum 'enum'
+  impl 'impl'
+  self 'self'
+  super 'super'
+  type 'type'
+  const 'const'
+  static 'static'
+  for 'for'
+  loop 'loop'
+  while 'while'
+  move 'move'
+  mut 'mut'
+  ref 'ref'
+  trait 'trait'
+  match 'match'
+  return 'return'
+  continue 'continue'
+  break 'break'
+  in 'in'
+  unsafe 'unsafe'
+  where 'where'
+
+  l_paren '('
+  r_paren ')'
+  l_curly '{'
+  r_curly '}'
+  l_angle '<'
+  r_angle '>'
+  l_brack '['
+  r_brack ']'
+  #[contextual] shl '<<'
+  #[contextual] shl_eq '<<='
+  #[contextual] shr '>>'
+  #[contextual] shr_eq '>>='
+  #[contextual] and '&&'
+  #[contextual] or  '||'
+  thin_arrow '->'
+  fat_arrow '=>'
+  eq '='
+  eqeq '=='
+  bangeq '!='
+  gtet '>='
+  lteq '<='
+  semi ';'
+  colon ':'
+  coloncolon '::'
+  comma ','
+  dot '.'
+  dotdot '..'
+  dotdotdot '...'
+  hash '#'
+  dollar '$'
+
+  star '*'
+  star_eq '*='
+  slash '/'
+  slash_eq '/='
+  percent '%'
+  percent_eq '%='
+  plus '+'
+  plus_eq '+='
+  minus '-'
+  minus_eq '-='
+  ampersand '&'
+  ampersand_eq '&='
+  pipe '|'
+  pipe_eq '|='
+  underscore '_'
+  bang '!'
+  question '?'
+  caret '^'
+  caret_eq '^='
+
+  char r"'\\''|'[^']'|'(\\|\p{XID_Continue}|\{|\})*'"
+  lifetime r"'\p{XID_Continue}*"
+  bool r"true|false"
+  number r"\d+"
+  string r#""(\\"|[^"])*""#
+  raw_string r#"r#*""# 'parse_raw_string'
+  ident r"(\p{XID_Start}|_)\p{XID_Continue}*"
+}
+
+test r###"
+struct S<'a:'b>;
+fn main() {
+  "\"";
+  '\'';
+}
+"###
+
+pub rule file { mod_contents }
+
+rule mod_contents {
+  <with_skip mod_form_first mod_form>*
+}
+
+rule mod_form_first {
+  'struct' | 'union' | 'enum' | 'use' | 'mod'
+| 'impl' | 'trait'
+| impl_form_first
+}
+
+#[cached]
+rule mod_form {
+  <inject
+    {outer_attributes visibility?} {
+      impl_form | use_decl | extern_crate_decl | struct_def
+    | enum_def | mod_def | impl_def | trait_def | extern_block
+  }>
+| macro_item
+}
+
+pub rule use_decl {
+  'use' <commit> {
+    mod_path {alias | {'::' use_spec}?}
+  | '::'? use_spec
+  } ';'
+}
+
+pub rule use_spec {
+  '*'
+| <block <comma_list use_spec_entry>>
+}
+
+pub rule use_spec_entry {
+  'self' | ident <commit> alias?
+}
+
+test r"
+use abi::{self, Abi};
+"
+
+pub rule extern_crate_decl {
+  'extern' 'crate' <commit> ident alias? ';'
+}
+
+pub rule fn_def {
+  'const'? 'unsafe'? linkage?
+  'fn' <commit> ident
+  type_parameters?
+  value_parameters
+  ret_type?
+  where_clause?
+  {block_expr | ';'}
+}
+
+test r"
+const unsafe fn foo(self, x: i32) -> () {
+  ()
+}
+"
+
+rule ret_type {
+  '->' type_reference
+}
+
+pub rule linkage {
+  'extern' string?
+}
+
+rule value_parameters {
+  <in_parens {self_parameter? <comma_list value_param>}>
+}
+
+pub rule value_param {
+  pattern <commit> ':' type_reference
+}
+
+pub rule lambda_value_param {
+  pattern {':' type_reference}?
+}
+
+pub rule self_parameter {
+  {borrow | 'mut'}? 'self' <commit> {':' type_reference}? {',' | <eof>}
+}
+test r"
+fn foo(&mut self: Box<Self>) {}
+fn bar(mut self) {}
+"
+
+pub rule struct_def {
+  {'struct' | 'union'} <commit>
+  ident type_parameters? {
+    <block <comma_list struct_field>>
+  | ';'
+  | <in_parens <comma_list tuple_field>>';'
+  }
+}
+
+pub rule struct_field {
+  visibility? ident <commit> ':' type_reference
+}
+
+pub rule tuple_field {
+  visibility? type_reference
+}
+
+pub rule enum_def {
+  'enum' <commit> ident type_parameters?
+  <block <comma_list enum_variant>>
+}
+
+pub rule enum_variant {
+  ident <commit>
+  { '=' expr
+  | <in_parens <comma_list tuple_field>>
+  | <block <comma_list struct_field>>
+  }?
+}
+
+pub rule mod_def {
+  'mod' <commit>
+  ident { ';' | <block mod_contents> }
+}
+
+pub rule impl_def {
+  'unsafe'? 'impl' <commit>
+  type_parameters?
+  {type_reference {'for' type_reference}? }
+  where_clause?
+  members
+}
+
+test r"
+impl Node {}
+unsafe impl<'f> ::Debug for Node<'f> where Self: 'static { }
+"
+
+pub rule trait_def {
+  outer_attributes visibility? 'trait' <commit>
+  ident type_parameters? type_bounds? where_clause?
+  members
+}
+
+test r"
+pub trait T<X>: Clone
+  where X: Clone
+{}
+"
+
+pub rule members {
+  <block <with_skip impl_form_first {
+    <inject {outer_attributes visibility?} impl_form>
+  | macro_item
+  }>*>
+}
+
+
+rule impl_form {
+  fn_def | type_def | const_def | inner_attribute
+}
+
+rule impl_form_first {
+  'pub' | 'fn' | 'type' | 'const' | 'static' | 'unsafe'
+| '#' | 'extern' | {ident '!'}
+}
+
+pub rule type_def {
+  'type' <commit>
+  ident type_parameters?
+  {'=' type_reference}?
+  ';'
+}
+
+pub rule const_def {
+  {'const' | 'static'} <commit>
+  ident ':' type_reference
+  {'=' expr}? ';'
+}
+
+test r"
+pub const X: i32 = 0;
+"
+
+pub rule macro_item {
+  block_macro | line_macro ';'
+}
+
+test r"
+foo!{}
+bar!();
+"
+
+pub rule extern_block {
+  linkage <block extern_form*>
+}
+
+rule extern_form {
+  <inject {outer_attributes visibility?}
+    {fn_def | const_def}>
+}
+
+test r#"
+extern {
+  static errno: i32;
+  #[link_name = "bar"]
+  pub fn foo();
+}
+"#
+
+pub rule type_parameters {
+  <in_angles {
+    <comma_list lifetime_parameter>
+    <comma_list type_parameter>
+  }>
+}
+
+pub rule type_parameter {
+  ident <commit> type_bounds?
+}
+
+rule type_bounds {
+  ':' {
+    type_bound <commit> {'+' | <eof> | <not <not {',' | '{' | 'where' }>>}
+  }*
+}
+
+pub rule type_bound {
+  lifetime | path_type | for_type
+}
+
+pub rule lifetime_parameter {
+  lifetime <commit> { ':'
+    {lifetime <commit> {'+' | <eof> | <not <not ','>>}}*
+  }?
+}
+
+test r"
+struct B<'a:, 'b: 'a + 'a, C: 'b + Clone + for<'de> De<'de> +, D:>();
+"
+
+
+pub rule visibility {
+  'pub' <in_parens {'crate' | 'super'}>?
+}
+
+test r"
+pub struct X;
+pub(crate) struct Y;
+pub(super) struct Z;
+"
+
+pub rule where_clause {
+  'where' <commit>
+    {type_reference type_bounds {',' | <eof> | <not <not '{'>>}}*
+}
+
+test r"
+fn f()
+  where T: Clone + Copy, Foo: Bar
+{}
+"
+
+rule mod_path { path }
+rule type_path { <enter 'type_path' path> }
+rule expr_path { <enter 'expr_path' path> }
+
+test r"
+const C: Foo<Bar> = foo::<'bar, Baz>;
+const C: Fn(i32, i64) -> () = foo;
+"
+
+#[pratt]
+pub rule path {
+  unqualified_path | qualified_path | trait_projection_path
+}
+
+#[atom, type(path)]
+pub rule unqualified_path {
+  '::'? path_segment
+}
+
+#[postfix, type(path)]
+pub rule qualified_path {
+  path {'::' path_segment}
+}
+
+#[atom]
+pub rule trait_projection_path {
+  <in_angles {type_reference 'as' type_reference}>
+  '::' path_segment
+}
+test r"
+type T = <Q as Foo<'f>>::Result;
+"
+
+pub rule path_segment {
+  { ident | 'self' | 'super' }
+  { type_arguments | <is_in 'type_path'> fn_trait_sugar}?
+}
+
+pub rule type_arguments {
+  { <is_in 'type_path'> | <is_in 'expr_path'> '::' }
+  <in_angles {
+    <comma_list lifetime>
+    <comma_list {<not {ident '='}> type_reference}>
+    <comma_list {ident '=' type_reference}>
+  }>
+}
+
+pub rule fn_trait_sugar {
+  <in_parens <comma_list type_reference>> ret_type?
+}
+
+pub rule alias { 'as' ident }
+
+// START TYPES
+
+pub rule type_reference {
+  any_type {'+' type_bound}*
+}
+test r"type T = Box<Iterator<Item=T + 'static> + Send>;"
+
+rule any_type {
+  path_type | reference_type | pointer_type
+| placeholder_type | unit_type | paren_type | never_type
+| array_type
+| fn_pointer_type
+| for_type
+}
+
+pub rule path_type {
+  type_path
+}
+test r"type T = X<'a, Foo, Bar=Baz>;"
+
+pub rule reference_type {
+  borrow type_reference
+}
+test r"type T = &'static mut X;"
+
+pub rule pointer_type {
+  '*' {'const' | 'mut'} type_reference
+}
+test r"type T = *mut ();"
+
+
+pub rule placeholder_type {
+  '_'
+}
+test r"type T = _;"
+
+pub rule unit_type {
+  '(' ')'
+}
+
+#[replaceable]
+pub rule paren_type {
+  <in_parens {type_reference tuple_type?}>
+}
+
+#[replaces]
+pub rule tuple_type {
+  ',' <comma_list type_reference>
+}
+
+test r"
+type T = ();
+type T = (A);
+type T = (A,);
+type T = (A, B);
+"
+
+pub rule never_type {
+  '!'
+}
+
+test r"
+fn main() -> ! { }
+"
+
+pub rule array_type {
+  <in_bracks {
+    type_reference {';' expr}?
+  }>
+}
+test r"
+type T = [(); 92];
+type T = &[()];
+"
+
+pub rule fn_pointer_type {
+  linkage? 'fn' <commit> <in_parens <comma_list anon_value_param>> ret_type?
+}
+
+#[type(value_param)]
+pub rule anon_value_param {
+  {pattern ':'}? type_reference
+}
+
+test r#"
+type F = extern "C" fn(i32, x: f64) -> ();
+type F_Unit = fn();
+"#
+
+pub rule for_type {
+  'for' <commit> type_parameters type_reference
+}
+
+test r"
+type F = for<'f> T<'f>;
+"
+
+
+// END TYPES
+
+// START PATTERNS
+
+rule pattern {
+  wildcard_pattern | path_pattern
+| binding_pattern | literal_pattern | unit_pattern | paren_pattern
+| reference_pattern
+}
+
+pub rule wildcard_pattern {
+  '_'
+}
+test r"fn main() { let _ = (); }"
+
+
+#[replaceable]
+pub rule path_pattern {
+  expr_path {tupe_struct_pattern | struct_pattern}?
+}
+
+#[replaces]
+pub rule tupe_struct_pattern {
+  <in_parens {
+    <comma_list pattern> {'..' ','?}?
+  }>
+}
+
+#[replaces]
+pub rule struct_pattern {
+  <block {
+    <comma_list struct_pattern_field> {'..' ','?}?
+  }>
+}
+
+pub rule struct_pattern_field {
+  binding_pattern <not ':'>
+| ident ':' <commit> pattern
+}
+
+test r"
+fn main() {
+  let foo::bar = ();
+  let S(foo, bar, .. ,) = ();
+  let foo::Bar { ref x, y: _, .. } = ();
+}"
+
+
+pub rule binding_pattern {
+  'ref'? 'mut'? ident
+}
+test r"
+fn main() {
+    let foo = ();
+    let ref mut bar = 92;
+}
+"
+
+pub rule literal_pattern {
+  literal
+}
+
+pub rule unit_pattern {
+  '(' ')'
+}
+
+#[replaceable]
+pub rule paren_pattern {
+  <in_parens {pattern tuple_pattern?}>
+}
+
+#[replaces]
+pub rule tuple_pattern {
+  ',' <comma_list pattern>
+}
+
+test r"
+fn main() {
+  let (x) = ();
+  let (x,) = ();
+  let (x, y) = ();
+  let () = ();
+}
+"
+
+pub rule reference_pattern {
+  '&' 'mut'? pattern
+}
+
+test r"
+fn main() { let &mut foo = bar; }
+"
+
+// END PATTERNS
+
+// START EXPRESSIONS
+
+#[pratt]
+pub rule expr {
+  literal | path_expr | unit_expr | paren_expr | array_literal
+| lambda_expr | return_expr | loop_cf_expr
+| block_expr | if_expr | while_expr | loop_expr | for_expr | match_expr
+| block_macro_expr | line_macro_expr
+
+| method_call_expr | call_expr | field_expr | index_expr | try_expr | cast_expr
+
+| reference_expr | dereference_expr | negation_expr | not_expr
+
+| product_expr | sum_expr
+| bit_shift
+| bit_and | bit_xor | bit_or
+| comparison
+| logical_and | logical_or
+| range_expr | prefix_range_expr | postfix_range_expr | full_range_expr
+| assignment_expr
+}
+
+rule expr_first {
+  literal | ident | lifetime | 'self' | 'super' | '<' | '::' | '(' | '[' | '|'
+| 'return' | '{' | 'if' | 'while' | 'loop' | 'for' | 'match' | 'move' | 'continue' | 'break'
+| '&' | '*' | '-' | '!' | '..' | '...'
+}
+
+rule prev_is_block {
+  <prev_is block_expr if_expr while_expr loop_expr for_expr match_expr
+    block_macro_expr
+  >
+}
+
+rule without_restrictions(p) {
+  <exit 'condition' <exit 'stmt' p>>
+}
+
+#[atom]
+pub rule literal {
+  number | string | raw_string | char | bool
+}
+
+test r###"
+fn main() {
+  (1, "", r"", ' ', 'hell', '', true, false)
+}
+"###
+
+#[atom, replaceable]
+pub rule path_expr {
+  <not {ident '!'}>
+  expr_path struct_literal?
+}
+
+#[replaces]
+pub rule struct_literal {
+  <not <is_in 'condition'>>
+  <block {
+    <comma_list struct_literal_field>
+    {'..' <without_restrictions expr>}?
+  }>
+}
+
+pub rule struct_literal_field {
+  ident <commit> {':' expr}?
+}
+
+test r"
+fn main() {
+    S { foo, bar: baz, ..Default::default() };
+}
+"
+
+#[atom]
+pub rule unit_expr { '(' ')' }
+
+#[atom, replaceable]
+pub rule paren_expr {
+  <in_parens {
+    <without_restrictions expr> tuple_expr?
+  }>
+}
+
+#[replaces]
+pub rule tuple_expr {
+  ',' <comma_list <without_restrictions expr>>
+}
+
+test r"
+fn main() {
+  ();
+  (1);
+  ((1));
+  (1,);
+  (1, 2);
+}
+"
+
+#[atom]
+pub rule array_literal {
+  <in_bracks <without_restrictions {
+    expr {';' expr | ',' <comma_list expr>}?
+  }>>
+}
+
+test r"
+fn main() {
+  [];
+  [1];
+  [2,];
+  [2, 3];
+  [1; 2];
+}
+"
+
+#[atom]
+pub rule lambda_expr {
+  'move'? '|' lambda_arg* '|' {
+    '->' type_reference block_expr
+  | <without_restrictions expr>
+  }
+}
+
+rule lambda_arg {
+  lambda_value_param <commit> {',' | <not <not '|'>>}
+}
+
+test r"
+fn foo() {
+    |x, y: i32,| 1 + 1;
+    move || -> i32 { 92 };
+}
+"
+
+test r"
+fn binary_or_lambda_ambiguity() {
+    || true || false;
+}
+"
+
+#[atom]
+pub rule return_expr {
+  'return' expr?
+}
+
+test r"
+fn main() { return; return (); }
+"
+
+#[atom]
+pub rule loop_cf_expr {
+  {'break'|'continue'} lifetime?
+}
+
+test r"
+fn main() {
+  'l: loop {
+    break;
+    continue 'l;
+  }
+}
+"
+
+
+#[atom]
+pub rule block_expr {
+  <without_restrictions
+    {'unsafe'? <block <with_skip block_form_first block_form>*>}
+  >
+}
+
+rule block_form {
+  let_stmt | empty_stmt | mod_form | expr_stmt
+}
+
+rule block_form_first {
+  'let' | ';' | mod_form_first | expr_first
+}
+
+test r"
+fn main() {
+    {1};
+    {1}
+    {1;}
+    unsafe { let _ = (); }
+}
+"
+
+pub rule let_stmt {
+  'let' <commit> pattern type_ascription? {'=' <commit> expr}? ';'
+}
+
+
+pub rule type_ascription {
+  ':' type_reference
+}
+
+test r"
+fn main() {
+  let d;
+  let b: bool = true;
+}
+"
+
+pub rule empty_stmt { ';' }
+
+pub rule expr_stmt {
+  <enter 'stmt'
+    {expr <commit> {prev_is_block | <eof> | ';'}}
+  >
+}
+
+#[atom]
+pub rule if_expr {
+  'if' <commit>
+    block_condition block_expr
+    {'else' {block_expr | if_expr}}?
+}
+
+test r"
+fn main() {
+  if true { foo } else { bar }
+  if 1 { 2 } else if 3 { 4 } else { 5 }
+}
+"
+
+#[atom]
+pub rule while_expr {
+  label? 'while' <commit>
+    block_condition block_expr
+    }
+
+test r"
+fn main() { 'w: while true {} }
+"
+
+test r"
+fn main() {
+  if let
+}"
+
+rule block_condition {
+  {'let' <commit> pattern '='}?  <commit> no_struct_literal_expr
+}
+
+rule no_struct_literal_expr {
+  <enter 'condition' expr>
+}
+
+test r"
+fn main() {
+    if S {};
+    if (S {}) {}
+    if let Some(x) = foo() {}
+}
+"
+
+#[atom]
+pub rule loop_expr {
+  label? 'loop' <commit> block_expr
+}
+
+test r"
+fn main() { 'pool: loop { 92 }}
+"
+
+#[atom]
+pub rule for_expr {
+  label? 'for' <commit>
+  pattern 'in' no_struct_literal_expr block_expr
+}
+
+rule label {
+  lifetime ':'
+}
+
+test r"
+fn main() { for x in xs {} }
+"
+
+#[atom]
+pub rule match_expr {
+  'match' <commit> no_struct_literal_expr <block match_arm*>
+}
+
+pub rule match_arm {
+  match_arm_pattern <commit>
+  '=>' <enter 'stmt' expr>
+  {',' | <eof> | prev_is_block}
+}
+
+rule match_arm_pattern {
+  pattern {'|' pattern}* guard?
+}
+
+pub rule guard {
+  'if' expr
+}
+
+test r"
+fn main() {
+    match x {
+      Some(1) | Some(2) => { no_comma }
+      Some(x) if x & 3 => true,
+      None => false,
+    }
+}
+"
+
+#[atom]
+pub rule block_macro_expr {
+  block_macro
+}
+
+#[atom]
+pub rule line_macro_expr {
+  line_macro
+}
+
+test r#"
+fn main() {
+    block! {
+      foo => bar
+    }
+    println!("Hello, world");
+    vec![]
+}
+"#
+
+#[postfix]
+pub rule method_call_expr {
+  expr {
+    '.' ident <enter 'expr_path' type_arguments>?
+    call_args
+  }
+}
+
+test r"
+  fn main() { foo.bar::<i32>() }
+"
+
+#[postfix]
+pub rule call_expr {
+  expr {
+    {<is_in 'stmt'> <not prev_is_block> | <not <is_in 'stmt'>>}
+    call_args
+  }
+}
+
+test r"
+fn main() {
+  foo();
+  let x = foo();
+  {}();
+  match x { 1 => {}() => 2 }
+}
+"
+
+rule call_args {
+  <without_restrictions <in_parens <comma_list value_argument>>>
+}
+
+pub rule value_argument {
+  expr
+}
+
+test r"
+  fn main() { foo() }
+"
+
+
+#[postfix]
+pub rule field_expr {
+  expr {'.' {ident | number}}
+}
+test r"
+fn main() { x.foo; x.92; }
+"
+
+#[postfix]
+pub rule index_expr {
+  expr <in_bracks expr>
+}
+test r"
+fn main() { xs[92]; }
+"
+
+#[postfix]
+pub rule try_expr {
+  expr '?'
+}
+test r"
+fn main() { -x??; }
+"
+
+#[postfix]
+pub rule cast_expr {
+  expr {'as' type_reference}
+}
+test r"
+fn main() { 1 as u128; }
+"
+
+#[prefix]
+pub rule reference_expr { borrow expr }
+rule borrow {
+  '&' lifetime? 'mut'?
+}
+
+#[prefix]
+pub rule dereference_expr { '*' expr }
+
+#[prefix]
+pub rule negation_expr { '-' expr }
+
+#[prefix]
+pub rule not_expr { '!' expr }
+
+#[bin(11)]
+pub rule product_expr {
+  expr <binop {'*' | '/' | '%'}> expr
+}
+
+#[bin(10)]
+pub rule sum_expr {
+  expr <binop {'+' | '-'}> expr
+}
+
+#[bin(9)]
+pub rule bit_shift {
+  expr <binop {'<<' | '>>'}> expr
+}
+
+rule binop(op) {
+  <is_in 'stmt'> <not prev_is_block> op
+| <not <is_in 'stmt'>> op
+}
+
+#[bin(8)]
+pub rule bit_and {
+  expr <binop {'&' <not '&'>}> expr
+}
+
+#[bin(7)]
+pub rule bit_xor {
+  expr <binop '^'> expr
+}
+
+#[bin(6)]
+pub rule bit_or {
+  expr <binop {'|' <not '|'>}> expr
+}
+
+#[bin(5)]
+pub rule comparison {
+  expr <binop cmp_op> expr
+}
+
+rule cmp_op {
+  '==' | '!=' | '<' | '>' | '<=' | '>='
+}
+
+#[bin(4)]
+pub rule logical_and {
+  expr <binop '&&'> expr
+}
+
+#[bin(3)]
+pub rule logical_or {
+  expr <binop '||'> expr
+}
+
+#[bin(2)]
+pub rule range_expr {
+  expr <binop infix_range_op> expr
+}
+
+#[prefix(2), type(range_expr)]
+pub rule prefix_range_expr {
+  infix_range_op expr
+}
+
+#[postfix(2), type(range_expr)]
+pub rule postfix_range_expr {
+  expr range_op
+}
+
+#[atom, type(range_expr)]
+pub rule full_range_expr {
+  '..' <not expr_first>
+}
+
+rule range_op {
+  '..' | '...'
+}
+
+rule infix_range_op {
+  range_op
+  <not <not expr_first>>
+  <not {'{' <is_in 'condition'>}>
+}
+
+test r"
+fn main() {
+    1     .. 2 + 3;
+    1 + 2 .. 3;
+          .. 1 + 2;
+    1 + 2 .. ;
+    for j in 1 .. { }
+    x[1..];
+}
+"
+
+#[bin(1)]
+pub rule assignment_expr {
+  expr <binop {'=' | '+=' | '-=' | '*=' | '/=' | '%=' | '&=' | '|=' | '^=' | '>>=' | '<<=' }> expr
+}
+
+// END EXPRESSIONS
+
+// STATART ATRIBUTES
+
+pub rule attribute {
+  '#' attr_body
+}
+
+pub rule inner_attribute {
+  '#' '!'  attr_body
+}
+
+test r"
+#![foo]
+impl () {
+  #![bar]
+}
+"
+
+rule attr_body {
+  <in_bracks <comma_list attr_value>>
+}
+
+test r#"
+#[foo, bar(baz), quux = 92] struct Foo;
+#[cfg(target_os="linux")] mod bar;
+"#
+
+rule outer_attributes {
+  attribute*
+}
+
+pub rule attr_value {
+  ident <commit>
+  { '=' expr
+  | <in_parens <comma_list attr_value>>
+  }?
+}
+
+// END ATRIBUTES
+
+// START MACROS
+
+pub rule block_macro {
+  ident '!' ident? <block tt*>
+}
+
+pub rule line_macro {
+  ident '!' ident? {
+    '(' tt* ')'
+  | '[' tt* ']'
+  }
+}
+
+pub rule tt {
+  <not {'(' | ')' | '{' | '}' | '[' | ']'}> <any>
+| '(' tt* ')'
+| '[' tt* ']'
+| '{' tt* '}'
+}
+
+// END MACROS
+
+// START HELPERS
+
+rule comma_list(el) {
+  {el <commit> {<eof> | ','}}*
+}
+
+rule block(p)     { <balanced_layer '{' '}' p> }
+rule in_parens(p) { <balanced_layer '(' ')' p> }
+rule in_angles(p) { <balanced_layer '<' '>' p> }
+rule in_bracks(p) { <balanced_layer '[' ']' p> }
+
+rule balanced_layer(bra, ket, contents) {
+  bra <commit>
+    <layer <balanced bra ket> contents>
+  ket
+}
+
+
+rule balanced(bra, ket) {
+  { bra <commit> <balanced bra ket> ket
+  | {<not ket> <any>}
+  }*
+}
+
+// END HELPERS
+
+ast {
+  trait name_owner {
+    name_ident ident?
+    name ident?.text
+  }
+
+  trait type_parameters_owner {
+    type_parameters type_parameters?
+  }
+
+  node fn_def: name_owner {}
+  node struct_def: name_owner, type_parameters_owner {}
+  node enum_def: name_owner, type_parameters_owner {}
+  node trait_def: name_owner {}
+  node type_def: name_owner {}
+  node mod_def: name_owner {}
+  node impl_def {}
+
+
+  node type_parameters {
+    lifetime_parameters lifetime_parameter*
+    type_parameters type_parameter*
+  }
+  node type_parameter: name_owner {}
+  node lifetime_parameter {
+    lifetime lifetime.text
+  }
+
+  node path {
+    qualifier path?
+    segment path_segment?
+  }
+  node path_segment { }
+
+  node use_decl {
+    path path?
+    spec use_spec?
+  }
+  node use_spec {}
+
+  node let_stmt {}
+  node expr_stmt {}
+
+  node type_reference {}
+}
+
+verbatim r##########"
+fn whitespace_binder(ty: rt::NodeType, adjacent_tokens: Vec<(rt::NodeType, &str)>, is_leading: bool) -> usize {
+    if !is_leading {
+        return 0;
+    }
+    match ty {
+        STRUCT_DEF => {
+            let mut has_comment = false;
+            adjacent_tokens.iter().rev()
+                .take_while(|&&(ty, text)| {
+                    if ty == LINE_COMMENT {
+                        has_comment = true;
+                        true
+                    } else {
+                        ty == WHITESPACE && text.chars().filter(|&c| c == '\n').next().is_none()
+                    }
+                })
+                .count()
+        }
+        _ => 0,
+    }
+}
+
+fn parse_raw_string(s: &str) -> Option<usize> {
+    let quote_start = s.find('"').unwrap();
+    // Who needs more then 25 hashes anyway? :)
+    let q_hashes = concat!('"', "######", "######", "######", "######", "######");
+    let closing = &q_hashes[..quote_start];
+    s[quote_start + 1..].find(closing).map(|i| i + quote_start + 1 + closing.len())
+}
+
+fn parse_block_comment(s: &str) -> Option<usize> {
+    let mut s = &s[2..];
+    let mut len = 2;
+    let mut level = 1;
+    loop {
+        if s.len() == 0 || level == 0 {
+            break;
+        } else if s.starts_with("/*") {
+            s = &s[2..];
+            len += 2;
+            level += 1;
+        } else if s.starts_with("*/") {
+            s = &s[2..];
+            len += 2;
+            level -= 1;
+        } else {
+            let c = s.chars().next().unwrap();
+            let l = c.len_utf8();
+            s = &s[l..];
+            len += l;
+        }
+    }
+    Some(len)
+}
+"##########

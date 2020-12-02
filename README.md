@@ -1,6 +1,10 @@
 # compiler-notes
 
-## Refs
+## Movable DSL
+
+场景：
+
+1. 批量添加参数，如 Cubix
 
 
 ### Comby
@@ -134,7 +138,7 @@ int main(void) {
 
 
 
-### Cubix
+### Cubix：语言参数源到源转换
 
 [Cubix](https://github.com/cubix-framework/cubix) is a framework for language-parametric program transformation, i.e.: defining a single source-to-source program transformation tool that can be run on multiple languages. In Cubix, you can write transformations with a type signature like "This transformation works for any language that has assignments, loops, and a name-binding analysis," and instantly get separate tools for C, Java, etc. 
 
