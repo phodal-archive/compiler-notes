@@ -78,15 +78,15 @@ CONSTANT = INT
 
 [https://github.com/vnmakarov/mir](https://github.com/vnmakarov/mir)
 
-![Mir PROCESS](images/mir-gen.svg)
+![Mir PROCESS](../images/mir-gen.svg)
 
 Current:
 
-![Current Plan](images/mir3.svg)
+![Current Plan](../images/mir3.svg)
 
 Future Plan:
 
-![Future Plan](images/mirall.svg)
+![Future Plan](../images/mirall.svg)
 
 ### hello, world
 
