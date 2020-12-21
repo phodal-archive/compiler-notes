@@ -1,5 +1,26 @@
 # Related
 
+## K Framework
+
+GitHub: https://kframework.org/index.html
+
+K is a rewrite-based executable semantic framework in which programming languages, type systems and formal analysis tools can be defined using configurations, computations and rules. Configurations organize the state in units called cells, which are labeled and can be nested. Computations carry computational meaning as special nested list structures sequentializing computational tasks, such as fragments of program. Computations extend the original language abstract syntax. K (rewrite) rules make it explicit which parts of the term they read-only, write-only, read-write, or do not care about. This makes K suitable for defining truly concurrent languages even in the presence of sharing. Computations are like any other terms in a rewriting environment: they can be matched, moved from one place to another, modified, or deleted. This makes K suitable for defining control-intensive features such as abrupt termination, exceptions or call/cc.
+
+```
+syntax Foo ::= "a" | "b" | "c" | d ( Int )
+
+syntax Foo ::= freshFoo ( Int ) [freshGenerator, function, functional]
+
+rule freshFoo(0) => a
+rule freshFoo(1) => b
+rule freshFoo(2) => c
+rule freshFoo(I) => d(I) [owise]
+
+rule <k> new var x ; => . ... </k>
+     <env> ENV => ENV [ x <- !I:Int  ] </env>
+     <mem> MEM => MEM [ !I <- !F:Foo ] </mem>
+```
+
 ## Semantic
 
 Languages: Haskell
